@@ -1,24 +1,24 @@
-const express = require('express');
-const cors = require('cors');
-const app = express();
-const http = require('http');
-const safeRouter = express.Router();
-const unsafeRouter = express.Router();
+const fs = require('node:fs');
+const http = require('node:http');
 const bodyParser = require('body-parser');
-const request = require('request');
-const env = process.env;
-const fs = require('fs');
+const cors = require('cors');
+const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
+const request = require('request');
 const waitOn = require('wait-on');
-let url = env.CONFIG_URL;
-
-// const mongo_client = require('./mongo_client');
 // const mongoose = require('mongoose');
-// console.log('ENV',env);
+// const mongo_client = require('./mongo_client');
+
+const env = process.env;
+let url = env.CONFIG_URL;
 if(url==undefined || url==''){
   url = "https://simonlouvet.github.io/config-private/DFC-Proto/config.json"
 }
+
+const app = express();
+const safeRouter = express.Router();
+const unsafeRouter = express.Router();
 
 app.use(cors())
 app.use(bodyParser.json({
@@ -32,7 +32,6 @@ app.use(bodyParser.urlencoded({
 
 async function start() {
   const config = require("../../configuration.js")
-  // console.log('CONFIG',config.sources);
   const middlware_express_oidc = require('./auth/middlware-express-oidc.js');
   // const productAPI = require('./api/product.js');
   const catalogAPI = require('./api/catalogItem.js');
@@ -44,12 +43,11 @@ async function start() {
   const {PlatformService,platformServiceSingleton} = require ('./service/platform.js')
   const {UnitService,unitServiceSingleton} = require ('./service/unit.js')
   const {ProductTypeService,productTypeServiceSingleton} = require ('./service/productType.js')
+
   // const contextResponse = await fetch(config.context);
   // const context = await contextResponse.json();
-
-  // console.log('CONTEXT',context);
-  // console.log('catalogAPI',catalogAPI);
   console.log('config',config);
+
   var opts = {
     resources: [
       'http-get://dfc-middleware:3000/ldp/platform',
@@ -61,19 +59,23 @@ async function start() {
   console.log('befor waitOn');
   await waitOn(opts);
   console.log('after waitOn');
+
   await platformServiceSingleton.updatePlatformsFromConfig();
   // await unitServiceSingleton.updateUnitsFromConfig();
   // await productTypeServiceSingleton.updateProductsFromReference();
+
   app.use(session({
     secret: config.express.session_secret,
     maxAge: null
   })); //session secret
+
   safeRouter.use(middlware_express_oidc);
   app.use('/login/', unsafeRouter);
   app.use('/data/core', unsafeRouter);
   app.use('/data/core', safeRouter);
   app.use(passport.initialize());
   app.use(passport.session());
+
   let addOidcLesCommunsPassportToApp = require('./auth/passport-oidc.js');
   addOidcLesCommunsPassportToApp(unsafeRouter);
   entrepriseUnsafe(unsafeRouter);
@@ -84,10 +86,10 @@ async function start() {
   entrepriseAPI(safeRouter);
   catalogAPI(safeRouter);
 
-  const port = process.env.APP_PORT || 8080
+  const port = process.env.APP_PORT || 8080;
   app.listen(port, function(err) {
     console.log('serveur started at port', port);
-  })
+  });
   app.use((_err, req, res, next) => {
     if (_err) {
       console.log('error',_err);
@@ -103,14 +105,9 @@ async function start() {
 
 start();
 
-
 // const configRaw = fs.readFileSync('config.js', 'utf8');
 // const config=JSON.parse(configRaw);
-// console.log('config',config);
-
-
 // fs.readFile('config.json', (err, data) => {
 //   if (err) throw err;
 //   console.log('readFile',data);
 // });
-
